@@ -1,2 +1,10 @@
 *.class
 *.log
+target/
+\#*#
+.ensime
+.ensime_cache
+ensime.sbt
+*.ipr
+*.iws
+.idea
