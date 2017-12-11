@@ -41,7 +41,7 @@ class ValidationSpec extends WordSpec with Matchers with EitherValues {
 
   "singleOptionalInt" should {
     "be tolerant with invalid values" in {
-      singleOptionalInt.validate("foo=bar") should be(\/-(ValueNull))
+      singleOptionalInt.validate("foo=bar") should be(\/-(ValueObject(Map("foo" -> ValueNull))))
     }
   }
 
@@ -57,8 +57,8 @@ class ValidationSpec extends WordSpec with Matchers with EitherValues {
   )
 
   "form" should {
-    "accept 'foo=42&bar.bux=12'" in {
-      val result = form.validate("foo=42&bar.bux=12")
+    "accept 'foo=42&bar.qux=12'" in {
+      val result = form.validate("foo=42&bar.qux=12")
       result should be(
         \/-(
           ValueObject(

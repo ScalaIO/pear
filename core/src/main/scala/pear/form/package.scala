@@ -1,12 +1,11 @@
 package pear
 
-import matryoshka.{BirecursiveT, CoalgebraM, AlgebraM, CorecursiveT}
-import matryoshka.patterns.EnvT
-import matryoshka.implicits._
-
 import scala.language.higherKinds
 
-import scalaz.{Kleisli, State, \/, NonEmptyList, IList}
+import matryoshka.{AlgebraM, BirecursiveT, CoalgebraM}
+import matryoshka.implicits._
+import matryoshka.patterns.EnvT
+import scalaz.{\/, IList, Kleisli, NonEmptyList, State}
 import scalaz.syntax.either._
 
 package object form {
@@ -48,17 +47,14 @@ package object form {
           State(errors => (errors, EnvT((v, Validation.Fields(subs)))))
         case (d, Definition.Value(c)) =>
           State(errors => (errors, EnvT((d, Validation.Value(c)))))
-        case (d @ NoValue(p), Definition.Optional(x)) =>
-          State(errors => (errors, EnvT((d, Validation.Empty()))))
         case (d, Definition.Optional(x)) =>
-          zipWithValue[T].apply((d, x))
+          State(errors => (errors, EnvT((d, Validation.Optional((d, x))))))
         case (FormList(path, values), Definition.Sequence(elem)) => ??? // TODO
         case (d, x) =>
           State(
             errors =>
-              (List(Error(d.path, s"error while zipping, ($d, $x) in unexpected")) :: errors,
+              (List(Error(d.path, s"error while zipping, ($d, $x) is unexpected")) :: errors,
                EnvT((d, Validation.Erroneous()))))
-        // case (d, f) => envT[T, Validation.FormF](d, Functor[V.FormF].map(f)(f => (d, f)))
       }
   }
 
@@ -76,9 +72,14 @@ package object form {
           )
       case (NoValue(p), Validation.Value(_)) =>
         State(errors => (List(Error(p, s"Missing mandatory value at path $p")) :: errors, ValueNull))
+      case (_, Validation.Optional(ValueNull)) =>
+        State(errors => (errors.tail, ValueNull))
+      case (_, Validation.Optional(x)) =>
+        State(
+          errors =>
+            if (errors.isEmpty) (Nil, x)
+            else (errors.tail, ValueNull))
       case (_, Validation.Erroneous()) =>
-        State(errors => (errors, ValueNull))
-      case (_, Validation.Empty()) =>
         State(errors => (errors, ValueNull))
       case (s, v) =>
         State(errors => (List(Error(s.path, s"incoherent decoration for value : ($s, $v)")) :: errors, ValueNull))
