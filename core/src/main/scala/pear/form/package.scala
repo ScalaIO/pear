@@ -89,7 +89,7 @@ package object form {
     }
   }
 
-  def zip[T[_[_]]](seed: Seed[T])(implicit T: BirecursiveT[T]) =
+  def zip[T[_[_]]](seed: Seed[T])(implicit T: BirecursiveT[T]): Errors[FormValue] =
     seed.hyloM[Errors, Zipped, FormValue](evaluate[T], zipWithValue[T])
 
 }

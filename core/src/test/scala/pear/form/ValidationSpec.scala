@@ -29,7 +29,7 @@ class ValidationSpec extends WordSpec with Matchers with EitherValues {
     }
   }
 
-  val optionalSingleInt = optional(singleInt)
+  val optionalSingleInt: Fix[FormF] = optional(singleInt)
 
   "optionalSingleInt" should {
     "accept empty form" in {
