@@ -69,7 +69,7 @@ object Definition {
   def choice[T[_[_]], L](alternatives: (String, T[FormF])*)(implicit T: CorecursiveT[T]): T[FormF] =
     T.embedT[FormF](Choice(alternatives.toVector))
 
-  def int = parse(s => ValueNum(s.toInt))
+  def int: Constraint = parse(s => ValueNum(s.toInt))
 
   def isoDateTime = parse(s => ValueDate(ZonedDateTime.parse(s, DateTimeFormatter.ISO_DATE_TIME)))
 

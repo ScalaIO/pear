@@ -10,6 +10,9 @@ import scalaz.syntax.either._
 
 package object form {
 
+  object Path {
+    def apply(string: String): Path = string.split('.').toVector
+  }
   type Path          = Vector[String]
   type Zipped[A]     = EnvT[Decoration, Validation.FormF, A]
   type Seed[T[_[_]]] = (Decoration, T[Definition.FormF])
@@ -17,13 +20,13 @@ package object form {
   type Constraint    = Kleisli[\/[String, ?], String, FormValue]
 
   implicit class ParsingOps(input: String) {
-    def parseFormUrlEncoded: Map[String, UrlEncoded] =
+    def parseFormUrlEncoded: Map[Path, UrlEncoded] =
       input
         .split("&")
         .filter(_.count(_ == '=') == 1)
         .map { s =>
           val Array(key, value) = s.split("=")
-          key -> new UrlEncoded(value)
+          Path(key) -> UrlEncoded(value)
         }
         .toMap
   }
@@ -86,7 +89,7 @@ package object form {
     }
   }
 
-  def zip[T[_[_]]](seed: Seed[T])(implicit T: BirecursiveT[T]) =
+  def zip[T[_[_]]](seed: Seed[T])(implicit T: BirecursiveT[T]): Errors[FormValue] =
     seed.hyloM[Errors, Zipped, FormValue](evaluate[T], zipWithValue[T])
 
 }

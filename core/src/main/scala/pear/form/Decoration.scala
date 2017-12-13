@@ -9,29 +9,29 @@ sealed trait Decoration extends Product with Serializable {
   def path: Path
 }
 
-final case class FormObject(path: Path, v: Map[String, UrlEncoded]) extends Decoration {
+final case class FormObject(path: Path, v: Map[Path, UrlEncoded]) extends Decoration {
 
-  def getValue(field: String): Option[String] = v.get(field).map(_.toString)
+  def getValue(at: Path): Option[String] = v.get(at).map(_.toString)
 
-  def getField(field: String) = v.get(field).map(Field(path :+ field, _)).getOrElse(NoValue(path :+ field))
+  def getField(at: Path): Decoration = v.get(at).map(Field(path ++ at, _)).getOrElse(NoValue(path ++ at))
 
-  def getForm(field: String): FormObject =
-    FormObject(path :+ field, v.collect {
-      case (key, value) if key.startsWith(s"$field.") =>
-        key.substring(field.length() + 1) -> value
+  def getForm(at: Path): FormObject =
+    FormObject(path ++ at, v.collect {
+      case (key, value) if key.startsWith(at) =>
+        key.diff(at) -> value
     })
 
-  def getList(field: String): FormList =
+  def getList(at: Path): FormList =
     FormList(
-      path :+ field,
+      path ++ at,
       v.collect {
-        case (key, value) if key.startsWith(s"$field.") && key.substring(field.length + 1).forall(_.isDigit) =>
-          key.substring(field.length + 1) -> value
+        case (key, value) if key.startsWith(at) && key.diff(at).mkString(".").forall(_.isDigit) =>
+          key.diff(at) -> value
       }
     )
 
   // TODO implement that using a proper recursion scheme rather than with explicit recursion
-  def getAt[T[_[_]]](pos: String, schema: T[Definition.FormF])(implicit T: BirecursiveT[T]): Decoration =
+  def getAt[T[_[_]]](pos: Path, schema: T[Definition.FormF])(implicit T: BirecursiveT[T]): Decoration =
     T.projectT[Definition.FormF](schema) match {
       case Definition.Fields(_) =>
         getForm(pos)
@@ -41,16 +41,20 @@ final case class FormObject(path: Path, v: Map[String, UrlEncoded]) extends Deco
         (for {
           choice <- getValue(pos)
           select <- alts.toMap.get(choice)
-        } yield getAt(choice, select)).getOrElse(NoValue(path :+ pos))
+        } yield getAt(choice, select)).getOrElse(NoValue(path ++ pos))
       case Definition.Optional(x) =>
         getAt(pos, x)
 
     }
+
+  def getAt[T[_[_]]](pos: String, schema: T[Definition.FormF])(implicit T: BirecursiveT[T]): Decoration =
+    getAt(Path(pos), schema)
+
 }
 
-final case class FormList(path: Path, values: Map[String, UrlEncoded]) extends Decoration
-final case class NoValue(path: Path)                                   extends Decoration
-final case class Field(path: Path, value: UrlEncoded)                  extends Decoration
+final case class FormList(path: Path, values: Map[Path, UrlEncoded]) extends Decoration
+final case class NoValue(path: Path)                                 extends Decoration
+final case class Field(path: Path, value: UrlEncoded)                extends Decoration
 
 final case class UrlEncoded(str: String) {
   import java.net.URLDecoder
