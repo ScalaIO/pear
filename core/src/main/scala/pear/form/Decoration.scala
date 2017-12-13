@@ -9,7 +9,7 @@ sealed trait Decoration extends Product with Serializable {
   def path: Path
 }
 
-final case class FormObject(path: Path, private val v: Map[Path, UrlEncoded]) extends Decoration {
+final case class FormObject(path: Path, v: Map[Path, UrlEncoded]) extends Decoration {
 
   def getValue(at: Path): Option[String] = v.get(at).map(_.toString)
 
@@ -25,7 +25,7 @@ final case class FormObject(path: Path, private val v: Map[Path, UrlEncoded]) ex
     FormList(
       path ++ at,
       v.collect {
-        case (key, value) if key.startsWith(at) && key.diff(at).mkString("").forall(_.isDigit) =>
+        case (key, value) if key.startsWith(at) && key.diff(at).mkString(".").forall(_.isDigit) =>
           key.diff(at) -> value
       }
     )
