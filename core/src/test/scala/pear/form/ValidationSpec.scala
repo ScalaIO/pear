@@ -69,4 +69,33 @@ class ValidationSpec extends WordSpec with Matchers with EitherValues {
                 ))))))
     }
   }
+
+  val list: Fix[Definition.FormF] = mapping("things" -> sequence(form))
+
+  "list" should {
+    "accept 'things.0.foo=42&things.0.bar.qux=12&things.1.foo=83&things.1.bar.baz=1&things.bar.qux=0'" in {
+      val result =
+        list.validate("things.0.foo=42&things.0.bar.qux=12&things.1.foo=83&things.1.bar.baz=1&things.1.bar.qux=0")
+      result should be(
+        \/-(
+          ValueObject(
+            Map(
+              "things" -> ValueList(List(
+                ValueObject(Map("foo" -> ValueNum(42),
+                                "bar" -> ValueObject(Map(
+                                  "qux" -> ValueNum(12),
+                                  "baz" -> ValueNull
+                                )))),
+                ValueObject(Map("foo" -> ValueNum(83),
+                                "bar" -> ValueObject(Map(
+                                  "qux" -> ValueNum(0),
+                                  "baz" -> ValueNum(1)
+                                ))))
+              ))
+            ))
+        )
+      )
+
+    }
+  }
 }

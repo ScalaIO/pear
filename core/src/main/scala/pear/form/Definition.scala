@@ -68,6 +68,8 @@ object Definition {
     T.embedT[FormF](Fields(fields.toVector))
   def choice[T[_[_]], L](alternatives: (String, T[FormF])*)(implicit T: CorecursiveT[T]): T[FormF] =
     T.embedT[FormF](Choice(alternatives.toVector))
+  def sequence[T[_[_]]](element: T[FormF])(implicit T: CorecursiveT[T]): T[FormF] =
+    T.embedT[FormF](Sequence(element))
 
   def int: Constraint = parse(s => ValueNum(s.toInt))
 
