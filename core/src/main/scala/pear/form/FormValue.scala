@@ -13,5 +13,5 @@ final case class ValueBool(value: Boolean)                   extends FormValue
 case object ValueNull                                        extends FormValue
 
 final case class Error(path: Path, message: String) {
-  override def toString: String = s"${path.mkString(".")}: $message"
+  override def toString: String = s"$path: $message"
 }

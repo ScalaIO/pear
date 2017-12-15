@@ -73,7 +73,7 @@ class ValidationSpec extends WordSpec with Matchers with EitherValues {
   val list: Fix[Definition.FormF] = mapping("things" -> sequence(form))
 
   "list" should {
-    "accept 'things.0.foo=42&things.0.bar.qux=12&things.1.foo=83&things.1.bar.baz=1&things.bar.qux=0'" in {
+    "accept 'things.0.foo=42&things.0.bar.qux=12&things.1.foo=83&things.1.bar.baz=1&things.1.bar.qux=0'" in {
       val result =
         list.validate("things.0.foo=42&things.0.bar.qux=12&things.1.foo=83&things.1.bar.baz=1&things.1.bar.qux=0")
       result should be(
@@ -96,6 +96,38 @@ class ValidationSpec extends WordSpec with Matchers with EitherValues {
         )
       )
 
+    }
+  }
+
+  val alt: Fix[Definition.FormF] = mapping("choose" -> choice("form" -> form, "otherwise" -> int))
+
+  "alt" should {
+    "accept 'choose=form&form.foo=42&form.bar.qux=12'" in {
+      val result = alt.validate("choose=form&form.foo=42&form.bar.qux=12")
+      result should be(
+        \/-(
+          ValueObject(
+            Map(
+              "choose" -> ValueObject(
+                Map("foo" -> ValueNum(42),
+                    "bar" -> ValueObject(Map(
+                      "qux" -> ValueNum(12),
+                      "baz" -> ValueNull
+                    ))))
+            ))
+        ))
+    }
+
+    "accept 'choose=otherwise&otherwise=24'" in {
+      val result = alt.validate("choose=otherwise&otherwise=24")
+      result should be(
+        \/-(
+          ValueObject(
+            Map(
+              "choose" -> ValueNum(24)
+            ))
+        )
+      )
     }
   }
 }
