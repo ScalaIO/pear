@@ -55,6 +55,7 @@ package object form {
 
   import java.time.ZonedDateTime
   import java.time.format.DateTimeFormatter
+  import scala.annotation.switch
 
   type Outcome = NonEmptyList[Error] \/ FormValue
 
@@ -215,5 +216,122 @@ package object form {
 
   def makeValidator[T[_[_]]](form: T[FormF])(implicit T: BirecursiveT[T]): Validator[T] =
     form.cata(evaluate)
+
+  private def vectorPairToJson(vec: Vector[(String, String)]): String =
+    vec.map { case (k, v) => s""""$k":$v""" }.mkString(",")
+
+  def toJsonAlg: Algebra[FormF, String] = {
+    case Empty()              => "{}"
+    case Optional(a)          => s"""{"optional":$a}"""
+    case Fields(fields)       => s"""{"fields":{${vectorPairToJson(fields)}}}"""
+    case Choice(alternatives) => s"""{"choice":{${vectorPairToJson(alternatives)}}}"""
+    case Sequence(element)    => s"""{"sequence":$element}"""
+    case Number()             => s"""{"number":{}}"""
+    case IsoDateTime()        => s"""{"isoDateTime":{}}"""
+    case MinLength(min)       => s"""{"minLength":$min}"""
+    case MaxLength(max)       => s"""{"maxLength":$max}"""
+    case Min(min)             => s"""{"min":$min}"""
+    case Max(max)             => s"""{"max":$max}"""
+    case After(start)         => s"""{"after":$start}"""
+    case Before(end)          => s"""{"before":$end}"""
+    case AndThen(lhs, rhs)    => s"""{"andThen":{"lhs":$lhs,"rhs":$rhs}}"""
+  }
+
+  def toJson[T[_[_]]](form: T[FormF])(implicit ev: RecursiveT[T]) =
+    form.cata(toJsonAlg)
+
+  import io.circe._
+
+  def objectOnly[A](f: JsonObject => String \/ A) = new Json.Folder[String \/ A] {
+    def onNull                    = "expected.object.found.null".left
+    def onBoolean(x: Boolean)     = s"expected.object.found.boolean.$x".left
+    def onNumber(x: JsonNumber)   = s"expected.object.found.number.$x".left
+    def onString(x: String)       = s"expected.object.found.string.$x".left
+    def onArray(x: Vector[Json])  = s"expected.object.found.array.$x".left
+    def onObject(obj: JsonObject) = f(obj)
+  }
+
+  def fromJsonCoalg: CoalgebraM[String \/ ?, FormF, Json] = { json =>
+    json
+      .foldWith(objectOnly { json =>
+        (json.size: @switch) match {
+          case 1 =>
+            json.keys.head match {
+              case "optional" =>
+                json("optional").map(Optional(_).right).getOrElse("incoherent.optional".left)
+              case "fields" =>
+                json("fields")
+                  .map(_.foldWith(objectOnly(j => Fields(j.toVector).right)))
+                  .getOrElse("incoherent.fields".left)
+              case "choice" =>
+                json("choice")
+                  .map(_.foldWith(objectOnly(j => Choice(j.toVector).right)))
+                  .getOrElse("incoherent.choice".left)
+              case "sequence" =>
+                json("sequence").map(j => Sequence(Vector(j)).right).getOrElse("incoherent.sequence".left)
+              case "number" =>
+                json("number")
+                  .map(_.foldWith(objectOnly(j =>
+                    if (j.size == 0) Number[Json]().right else "number.should.be.empty".left)))
+                  .getOrElse("incoherent.number".left)
+              case "isoDateTime" =>
+                json("isoDateTime")
+                  .map(
+                    _.foldWith(objectOnly(j => if (j.size == 0) Number[Json]().right else "date.should.be.empty".left)))
+                  .getOrElse("incoherent.date".left)
+              case "minLength" =>
+                json("minLength")
+                  .flatMap(_.asNumber.flatMap(_.toInt))
+                  .map(MinLength[Json](_).right)
+                  .getOrElse("minlength.should.be.a.number".left)
+
+              case "maxLength" =>
+                json("maxLength")
+                  .flatMap(_.asNumber.flatMap(_.toInt))
+                  .map(MaxLength[Json](_).right)
+                  .getOrElse("maxlength.should.be.a.number".left)
+              case "min" =>
+                json("min")
+                  .flatMap(_.asNumber.flatMap(_.toInt))
+                  .map(Min[Json](_).right)
+                  .getOrElse("min.should.be.a.number".left)
+
+              case "max" =>
+                json("max")
+                  .flatMap(_.asNumber.flatMap(_.toInt))
+                  .map(Max[Json](_).right)
+                  .getOrElse("max.should.be.a.number".left)
+
+              case "before" =>
+                json("before")
+                  .flatMap(_.asString)
+                  .map(str =>
+                    \/.fromTryCatchNonFatal(Before[Json](ZonedDateTime.parse(str))).leftMap(_ => "unparsable.date"))
+                  .getOrElse("start.should.be.a.string".left)
+
+              case "after" =>
+                json("after")
+                  .flatMap(_.asString)
+                  .map(str =>
+                    \/.fromTryCatchNonFatal(After[Json](ZonedDateTime.parse(str))).leftMap(_ => "unparsable.date"))
+                  .getOrElse("end.should.be.a.string".left)
+
+              case "andThen" =>
+                json("andThen")
+                  .map(_.foldWith(objectOnly(j =>
+                    (j("lhs") |@| j("rhs")) {
+                      case (lhs, rhs) =>
+                        AndThen(lhs, rhs).right
+                    }.getOrElse("andThen.should.have.lhs.and.rhs".left))))
+                  .getOrElse("malformed.andThen".left)
+
+              case x => s"unkown.type.$x".left
+            }
+          case 0 => Empty[Json]().right
+          case _ => "incoherent.definition".left
+        }
+      })
+
+  }
 
 }
