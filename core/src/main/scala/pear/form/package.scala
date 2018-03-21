@@ -39,7 +39,7 @@ package form {
 
   final case class EvaluationContext[T[_[_]]](form: DecodedForm,
                                               path: Path,
-                                              result: T[EnvT[NonEmptyList[Error] \/ FormValue, Definition.FormF, ?]]) {
+                                              result: T[EnvT[Outcome, Definition.FormF, ?]]) {
     def lookup: Option[String] = form.valueAt(path)
   }
 
@@ -331,7 +331,9 @@ package object form {
           case _ => "incoherent.definition".left
         }
       })
-
   }
+
+  def fromJson[T[_[_]]](json: String)(implicit T: CorecursiveT[T]): String \/ T[FormF] =
+    \/.fromEither(parser.parse(json)).leftMap(_.toString).flatMap(_.anaM[T[FormF]](fromJsonCoalg))
 
 }

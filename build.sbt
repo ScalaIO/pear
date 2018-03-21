@@ -11,24 +11,23 @@ lazy val core = project
     compilerSettings
   )
 
-lazy val cfp = project.in(file("cfp")).settings(compilerSettings).dependsOn(core)
+lazy val domain = project.in(file("domain")).settings(compilerSettings).dependsOn(core)
 
-lazy val schedule = project.in(file("schedule")).settings(compilerSettings).dependsOn(core)
-
-lazy val speakers = project.in(file("speakers")).settings(compilerSettings).dependsOn(core)
-
-lazy val domain = project.aggregate(cfp, schedule, speakers)
-
-lazy val api = project.in(file("api")).settings(compilerSettings).dependsOn(cfp, schedule, speakers)
+lazy val api = project.in(file("api")).settings(compilerSettings).dependsOn(domain)
 
 inThisBuild(
   Seq(
     scalaOrganization := "org.typelevel",
-    scalaVersion := "2.12.4-bin-typelevel-4"
+    scalaVersion := "2.12.4-bin-typelevel-4",
+    resolvers ++= Seq(
+      Resolver.sonatypeRepo("releases"),
+      Resolver.sonatypeRepo("snapshots")
+    )
   )
 )
 
 lazy val compilerSettings = Seq(
+  libraryDependencies += compilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.patch),
   scalacOptions ++= Seq(
     "-deprecation", // Emit warning and location for usages of deprecated APIs.
     "-encoding",
